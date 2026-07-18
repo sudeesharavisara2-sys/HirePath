@@ -5,14 +5,14 @@ using HirePathAI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace HirePathAI.Web.Controllers.Api;
+namespace HirePathAI.Web.Controllers;
 
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/ats")]
 [Produces("application/json")]
 [Authorize]
-public class AtsController : ControllerBase
+public sealed class AtsController : ControllerBase
 {
     private readonly IAtsService _atsService;
     private readonly ILogger<AtsController> _logger;
@@ -46,14 +46,15 @@ public class AtsController : ControllerBase
     [ProducesResponseType(
         StatusCodes.Status404NotFound)]
     [ProducesResponseType(
+        StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(
         StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<AtsAnalysisResponse>>
         AnalyzeResume(
-            [FromForm] int jobId,
-            [FromForm] IFormFile resumeFile,
+            [FromForm] AnalyzeResumeRequest request,
             CancellationToken cancellationToken)
     {
-        if (jobId <= 0)
+        if (request.JobId <= 0)
         {
             return BadRequest(new
             {
@@ -61,8 +62,8 @@ public class AtsController : ControllerBase
             });
         }
 
-        if (resumeFile is null ||
-            resumeFile.Length == 0)
+        if (request.ResumeFile is null ||
+            request.ResumeFile.Length == 0)
         {
             return BadRequest(new
             {
@@ -70,12 +71,36 @@ public class AtsController : ControllerBase
             });
         }
 
+        var fileExtension =
+            Path.GetExtension(request.ResumeFile.FileName)
+                .ToLowerInvariant();
+
+        if (fileExtension != ".pdf")
+        {
+            return BadRequest(new
+            {
+                message = "Only PDF resume files are supported."
+            });
+        }
+
+        const long maximumFileSize =
+            10 * 1024 * 1024;
+
+        if (request.ResumeFile.Length > maximumFileSize)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The resume PDF cannot exceed 10 MB."
+            });
+        }
+
         try
         {
             var response =
                 await _atsService.AnalyzeResumeAsync(
-                    jobId,
-                    resumeFile,
+                    request.JobId,
+                    request.ResumeFile,
                     cancellationToken);
 
             return Ok(response);
@@ -98,7 +123,8 @@ public class AtsController : ControllerBase
         {
             _logger.LogWarning(
                 exception,
-                "ATS analysis could not be completed.");
+                "ATS analysis could not be completed for job {JobId}.",
+                request.JobId);
 
             return StatusCode(
                 StatusCodes.Status422UnprocessableEntity,
@@ -111,7 +137,8 @@ public class AtsController : ControllerBase
         {
             _logger.LogError(
                 exception,
-                "Unexpected ATS analysis error.");
+                "Unexpected ATS analysis error for job {JobId}.",
+                request.JobId);
 
             return StatusCode(
                 StatusCodes.Status500InternalServerError,
@@ -131,13 +158,15 @@ public class AtsController : ControllerBase
             UserRoles.Recruiter + "," +
             UserRoles.HiringManager)]
     [ProducesResponseType(
-        typeof(
-            IReadOnlyCollection<
-                AtsAnalysisSummaryResponse>),
+        typeof(IReadOnlyCollection<AtsAnalysisSummaryResponse>),
         StatusCodes.Status200OK)]
-    public async Task<ActionResult<
-        IReadOnlyCollection<
-            AtsAnalysisSummaryResponse>>>
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    public async Task<
+        ActionResult<
+            IReadOnlyCollection<AtsAnalysisSummaryResponse>>>
         GetAllAnalyses(
             CancellationToken cancellationToken)
     {
@@ -159,12 +188,24 @@ public class AtsController : ControllerBase
         typeof(AtsAnalysisResponse),
         StatusCodes.Status200OK)]
     [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
         StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AtsAnalysisResponse>>
         GetAnalysisById(
             int id,
             CancellationToken cancellationToken)
     {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                message = "A valid analysis ID is required."
+            });
+        }
+
         var result =
             await _atsService.GetAnalysisByIdAsync(
                 id,
@@ -190,26 +231,37 @@ public class AtsController : ControllerBase
             UserRoles.Recruiter + "," +
             UserRoles.HiringManager)]
     [ProducesResponseType(
-        typeof(
-            IReadOnlyCollection<
-                CandidateRankingResponse>),
+        typeof(IReadOnlyCollection<CandidateRankingResponse>),
         StatusCodes.Status200OK)]
     [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
         StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<
-        IReadOnlyCollection<
-            CandidateRankingResponse>>>
+    public async Task<
+        ActionResult<
+            IReadOnlyCollection<CandidateRankingResponse>>>
         GetCandidateRanking(
             int jobId,
             CancellationToken cancellationToken)
     {
+        if (jobId <= 0)
+        {
+            return BadRequest(new
+            {
+                message = "A valid job ID is required."
+            });
+        }
+
         try
         {
             var results =
-                await _atsService
-                    .GetCandidateRankingAsync(
-                        jobId,
-                        cancellationToken);
+                await _atsService.GetCandidateRankingAsync(
+                    jobId,
+                    cancellationToken);
 
             return Ok(results);
         }
@@ -228,11 +280,25 @@ public class AtsController : ControllerBase
     [ProducesResponseType(
         StatusCodes.Status204NoContent)]
     [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
         StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAnalysis(
         int id,
         CancellationToken cancellationToken)
     {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                message = "A valid analysis ID is required."
+            });
+        }
+
         var deleted =
             await _atsService.DeleteAnalysisAsync(
                 id,
