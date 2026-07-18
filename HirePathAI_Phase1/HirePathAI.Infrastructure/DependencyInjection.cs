@@ -1,8 +1,10 @@
-﻿using System.Text;
+﻿using System.Security.Claims;
+using System.Text;
 using HirePathAI.Application.Interfaces;
 using HirePathAI.Infrastructure.AI.Services;
 using HirePathAI.Infrastructure.Data;
 using HirePathAI.Infrastructure.Identity;
+using HirePathAI.Infrastructure.Repositories;
 using HirePathAI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -29,7 +31,7 @@ public static class DependencyInjection
             services,
             configuration);
 
-        AddApplicationServices(services);
+        AddInfrastructureServices(services);
 
         return services;
     }
@@ -40,9 +42,13 @@ public static class DependencyInjection
     {
         var connectionString =
             configuration.GetConnectionString(
-                "DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "Connection string 'DefaultConnection' was not found.");
+                "DefaultConnection");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "The connection string 'DefaultConnection' was not found.");
+        }
 
         services.AddDbContext<ApplicationDbContext>(
             options =>
@@ -106,21 +112,25 @@ public static class DependencyInjection
             jwtSection);
 
         var jwtSettings =
-            jwtSection.Get<JwtSettings>()
-            ?? throw new InvalidOperationException(
+            jwtSection.Get<JwtSettings>();
+
+        if (jwtSettings is null)
+        {
+            throw new InvalidOperationException(
                 "JWT configuration was not found.");
+        }
 
         if (string.IsNullOrWhiteSpace(
                 jwtSettings.Key))
         {
             throw new InvalidOperationException(
-                "JWT key was not configured.");
+                "JWT signing key was not configured.");
         }
 
         if (jwtSettings.Key.Length < 32)
         {
             throw new InvalidOperationException(
-                "JWT key must contain at least 32 characters.");
+                "JWT signing key must contain at least 32 characters.");
         }
 
         if (string.IsNullOrWhiteSpace(
@@ -137,27 +147,28 @@ public static class DependencyInjection
                 "JWT audience was not configured.");
         }
 
+        var signingKey =
+            new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(
+                    jwtSettings.Key));
+
         services
             .AddAuthentication(
                 options =>
                 {
                     options.DefaultAuthenticateScheme =
-                        JwtBearerDefaults
-                            .AuthenticationScheme;
+                        JwtBearerDefaults.AuthenticationScheme;
 
                     options.DefaultChallengeScheme =
-                        JwtBearerDefaults
-                            .AuthenticationScheme;
+                        JwtBearerDefaults.AuthenticationScheme;
 
                     options.DefaultScheme =
-                        JwtBearerDefaults
-                            .AuthenticationScheme;
+                        JwtBearerDefaults.AuthenticationScheme;
                 })
             .AddJwtBearer(
                 options =>
                 {
                     options.SaveToken = true;
-
                     options.RequireHttpsMetadata = true;
 
                     options.TokenValidationParameters =
@@ -175,19 +186,16 @@ public static class DependencyInjection
                                 jwtSettings.Audience,
 
                             IssuerSigningKey =
-                                new SymmetricSecurityKey(
-                                    Encoding.UTF8.GetBytes(
-                                        jwtSettings.Key)),
+                                signingKey,
 
-                            ClockSkew = TimeSpan.Zero,
+                            ClockSkew =
+                                TimeSpan.Zero,
 
                             NameClaimType =
-                                System.Security.Claims
-                                    .ClaimTypes.Name,
+                                ClaimTypes.Name,
 
                             RoleClaimType =
-                                System.Security.Claims
-                                    .ClaimTypes.Role
+                                ClaimTypes.Role
                         };
 
                     options.Events =
@@ -199,10 +207,30 @@ public static class DependencyInjection
                                     if (context.Exception
                                         is SecurityTokenExpiredException)
                                     {
-                                        context.Response.Headers.Append(
-                                            "Token-Expired",
-                                            "true");
+                                        context.Response
+                                            .Headers["Token-Expired"] =
+                                            "true";
                                     }
+
+                                    return Task.CompletedTask;
+                                },
+
+                            OnChallenge =
+                                context =>
+                                {
+                                    context.Response
+                                        .Headers["Authentication-Failed"] =
+                                            "true";
+
+                                    return Task.CompletedTask;
+                                },
+
+                            OnForbidden =
+                                context =>
+                                {
+                                    context.Response
+                                        .Headers["Authorization-Failed"] =
+                                            "true";
 
                                     return Task.CompletedTask;
                                 }
@@ -212,29 +240,36 @@ public static class DependencyInjection
         services.AddAuthorization();
     }
 
-    private static void AddApplicationServices(
+    private static void AddInfrastructureServices(
         IServiceCollection services)
     {
-        // JWT token generation service.
+        // JWT token creation service.
         services.AddScoped<
             IJwtTokenService,
             JwtTokenService>();
 
-        // Keeps the existing PDF text extraction.
-        // This does not use the old trained ML model.
+        // Existing PDF text extraction service.
+        // This service does not use the removed trained ML model.
         services.AddScoped<
             IPdfExtractor,
             EnhancedPdfService>();
 
-        // Temporary implementation used until the teammate
-        // connects the real public AI API.
+        // Temporary AI implementation.
+        // Your teammate will later replace this registration
+        // with the real public AI API implementation.
         services.AddScoped<
             IPublicAiResumeService,
             TemporaryPublicAiResumeService>();
 
-        // Main Phase 5 ATS workflow service.
+        // New Phase 5 ATS service.
         services.AddScoped<
             IAtsService,
             AtsService>();
+
+        // Keep the existing dashboard store so the current
+        // HomeController and frontend dashboard continue working.
+        services.AddSingleton<
+            IAtsDashboardStore,
+            InMemoryAtsDashboardStore>();
     }
 }
