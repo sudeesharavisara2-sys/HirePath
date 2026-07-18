@@ -1,0 +1,460 @@
+@{
+    ViewData["Title"] = "AI Resume Screening Command Center";
+    Layout = null;
+    var top = ViewBag.TopCandidates as IReadOnlyList<HirePathAI.Application.Interfaces.AtsCandidateSnapshot>;
+    var latest = ViewBag.LatestCandidates as IReadOnlyList<HirePathAI.Application.Interfaces.AtsCandidateSnapshot>;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ATS Command Center</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* CSS reset & base */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+        body { background: #0B0F19; color: #F3F4F6; min-height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Navbar */
+        .nav { background: rgba(15,23,42,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 2rem; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; color: #F9FAFB; text-decoration: none; font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
+        .nav-brand i { color: #3B82F6; font-size: 1.4rem; }
+        .nav-links { display: flex; gap: 1rem; }
+        .nav-link { color: #94A3B8; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
+        .nav-link:hover { color: #F9FAFB; background: rgba(255,255,255,0.05); }
+        .nav-link.active { color: #3B82F6; background: rgba(59,130,246,0.1); }
+        .btn-screen { background: #3B82F6; color: white; padding: 0.5rem 1.25rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: 0.2s; border: 1px solid rgba(59,130,246,0.5); }
+        .btn-screen:hover { background: #2563EB; box-shadow: 0 0 15px rgba(59,130,246,0.4); }
+
+        /* Dashboard Layout */
+        .dashboard-container { padding: 2rem; max-width: 1600px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 2rem; }
+        .section-title { font-size: 1.1rem; font-weight: 600; color: #F3F4F6; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; letter-spacing: -0.01em; }
+        .section-title i { color: #3B82F6; }
+        
+        /* KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; }
+        .kpi-card { background: #111827; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.4); border-color: rgba(59,130,246,0.3); }
+        .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; font-weight: 600; }
+        .kpi-value { font-size: 2rem; font-weight: 700; color: #F9FAFB; line-height: 1; }
+        .kpi-icon { position: absolute; right: -10px; bottom: -10px; font-size: 4rem; opacity: 0.04; color: #fff; }
+        .kpi-card.blue { border-bottom: 3px solid #3B82F6; }
+        .kpi-card.green { border-bottom: 3px solid #10B981; }
+        .kpi-card.yellow { border-bottom: 3px solid #F59E0B; }
+        .kpi-card.red { border-bottom: 3px solid #EF4444; }
+        .kpi-card.purple { border-bottom: 3px solid #8B5CF6; }
+        .kpi-card.indigo { border-bottom: 3px solid #6366F1; }
+
+        /* Workflow Timeline */
+        .workflow-card { background: #111827; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 2rem; }
+        .workflow-timeline { display: flex; justify-content: space-between; align-items: center; position: relative; margin-top: 1rem; }
+        .workflow-timeline::before { content: ''; position: absolute; top: 20px; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.05); z-index: 1; }
+        .workflow-step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; flex: 1; }
+        .workflow-icon-wrap { width: 44px; height: 44px; background: #1F2937; border: 2px solid #374151; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 1.1rem; transition: all 0.3s; }
+        .workflow-step:hover .workflow-icon-wrap { background: #3B82F6; border-color: #60A5FA; color: #fff; transform: scale(1.1); box-shadow: 0 0 15px rgba(59,130,246,0.4); }
+        .workflow-label { font-size: 0.8rem; font-weight: 500; color: #94A3B8; text-align: center; }
+        
+        /* Layout Grids */
+        .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .operations-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+        
+        .chart-panel { background: #111827; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; height: 320px; display: flex; flex-direction: column; }
+        .chart-header { font-size: 0.9rem; font-weight: 600; color: #E5E7EB; margin-bottom: 1rem; }
+        .chart-body { flex: 1; position: relative; }
+
+        /* Tables & Activity */
+        .panel { background: #111827; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .panel-title { font-size: 1rem; font-weight: 600; color: #F3F4F6; display: flex; align-items: center; gap: 0.5rem; }
+        .panel-title i { color: #3B82F6; }
+        .panel-action { font-size: 0.8rem; color: #3B82F6; text-decoration: none; font-weight: 500; }
+        
+        /* Enterprise Table */
+        .table-responsive { overflow-x: auto; flex: 1; }
+        .table { width: 100%; border-collapse: collapse; text-align: left; }
+        .table th { padding: 1rem 1.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1); }
+        .table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #D1D5DB; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .table tr:hover td { background: rgba(255,255,255,0.02); }
+        .candidate-name { font-weight: 600; color: #F9FAFB; }
+        .score-bar-bg { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; width: 100px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 0.5rem; }
+        .score-bar-fill { height: 100%; background: #3B82F6; border-radius: 3px; }
+        .badge { padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .badge.select { background: rgba(16,185,129,0.15); color: #34D399; }
+        .badge.consider { background: rgba(245,158,11,0.15); color: #FBBF24; }
+        .badge.reject { background: rgba(239,68,68,0.15); color: #F87171; }
+        .meta-stat { display: inline-flex; align-items: center; gap: 0.35rem; color: #94A3B8; font-size: 0.8rem; }
+        .meta-stat i { font-size: 0.75rem; color: #6B7280; }
+
+        /* Activity Feed */
+        .activity-feed { padding: 0 1.5rem; max-height: 500px; overflow-y: auto; }
+        .activity-feed::-webkit-scrollbar { width: 6px; }
+        .activity-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .activity-item { padding: 1.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; gap: 1rem; }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem; }
+        .activity-icon.select { background: rgba(16,185,129,0.15); color: #34D399; }
+        .activity-icon.consider { background: rgba(245,158,11,0.15); color: #FBBF24; }
+        .activity-icon.reject { background: rgba(239,68,68,0.15); color: #F87171; }
+        .activity-content { flex: 1; }
+        .activity-text { font-size: 0.85rem; color: #D1D5DB; line-height: 1.4; margin-bottom: 0.25rem; }
+        .activity-text strong { color: #F9FAFB; }
+        .activity-time { font-size: 0.75rem; color: #6B7280; }
+
+        /* Empty States */
+        .empty-state { text-align: center; padding: 4rem 2rem; color: #94A3B8; }
+        .empty-state i { font-size: 3rem; color: #374151; margin-bottom: 1rem; }
+        .empty-state p { font-size: 0.9rem; }
+
+        @@media (max-width: 1200px) {
+            .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+            .analytics-grid { grid-template-columns: repeat(2, 1fr); }
+            .operations-grid { grid-template-columns: 1fr; }
+        }
+        @@media (max-width: 768px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .analytics-grid { grid-template-columns: 1fr; }
+            .workflow-timeline { flex-wrap: wrap; gap: 2rem; }
+            .workflow-timeline::before { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand"><i class="fas fa-layer-group"></i> ATS Command Center</a>
+        <div class="nav-links">
+            <a href="/" class="nav-link active"><i class="fas fa-chart-line me-1"></i> Dashboard</a>
+            <a href="/Job" class="nav-link"><i class="fas fa-briefcase me-1"></i> Jobs</a>
+            <a href="/Resume" class="btn-screen"><i class="fas fa-plus me-1"></i> New Screening</a>
+        </div>
+    </nav>
+
+    <main class="dashboard-container">
+        <!-- KPI Row -->
+        <section>
+            <div class="section-title"><i class="fas fa-chart-bar"></i> Executive Summary</div>
+            <div class="kpi-grid">
+                <div class="kpi-card blue">
+                    <div class="kpi-label">Total Resumes</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.TotalResumes">0</span></div>
+                    <i class="fas fa-file-alt kpi-icon"></i>
+                </div>
+                <div class="kpi-card green">
+                    <div class="kpi-label">Selected</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.SelectedCount">0</span></div>
+                    <i class="fas fa-check-circle kpi-icon"></i>
+                </div>
+                <div class="kpi-card yellow">
+                    <div class="kpi-label">Consider</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.ConsiderCount">0</span></div>
+                    <i class="fas fa-pause-circle kpi-icon"></i>
+                </div>
+                <div class="kpi-card red">
+                    <div class="kpi-label">Rejected</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.RejectedCount">0</span></div>
+                    <i class="fas fa-times-circle kpi-icon"></i>
+                </div>
+                <div class="kpi-card purple">
+                    <div class="kpi-label">Avg ATS Score</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.AvgScore">0</span>%</div>
+                    <i class="fas fa-star kpi-icon"></i>
+                </div>
+                <div class="kpi-card indigo">
+                    <div class="kpi-label">ML Accuracy</div>
+                    <div class="kpi-value"><span class="count-up" data-target="@ViewBag.AiAccuracy">0</span>%</div>
+                    <i class="fas fa-brain kpi-icon"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pipeline Workflow -->
+        <section class="workflow-card">
+            <div class="section-title" style="margin-bottom: 2rem;"><i class="fas fa-project-diagram"></i> ATS Pipeline Architecture</div>
+            <div class="workflow-timeline">
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-cloud-upload-alt"></i></div>
+                    <div class="workflow-label">Resume Upload</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-file-pdf"></i></div>
+                    <div class="workflow-label">Resume Parsing</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-code"></i></div>
+                    <div class="workflow-label">Skills Extraction</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-briefcase"></i></div>
+                    <div class="workflow-label">Experience Analysis</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-chart-line"></i></div>
+                    <div class="workflow-label">ATS Scoring</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-robot"></i></div>
+                    <div class="workflow-label">ML Prediction</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-icon-wrap"><i class="fas fa-gavel"></i></div>
+                    <div class="workflow-label">Final Decision</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Charts Row -->
+        <section>
+            <div class="section-title"><i class="fas fa-chart-pie"></i> Analytics</div>
+            <div class="analytics-grid">
+                <div class="chart-panel">
+                    <div class="chart-header">ATS Score Distribution</div>
+                    <div class="chart-body"><canvas id="scoreDistChart"></canvas></div>
+                </div>
+                <div class="chart-panel">
+                    <div class="chart-header">Selection Ratio</div>
+                    <div class="chart-body"><canvas id="selectionChart"></canvas></div>
+                </div>
+                <div class="chart-panel">
+                    <div class="chart-header">Screening Summary</div>
+                    <div class="chart-body"><canvas id="screeningChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Operations Row -->
+        <section>
+            <div class="section-title"><i class="fas fa-cogs"></i> Operations</div>
+            <div class="operations-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fas fa-wave-square"></i> Candidate Processing Volume</div>
+                    </div>
+                    <div class="panel-body" style="padding: 1.5rem; height: 320px; position: relative;">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fas fa-history"></i> Recent Activity Feed</div>
+                    </div>
+                    <div class="activity-feed">
+                        @if (latest == null || latest.Count == 0)
+                        {
+                            <div class="empty-state" style="padding: 2rem 1rem;">
+                                <p>Activity logs will appear here.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            foreach (var c in latest)
+                            {
+                                var decision = (c.Decision ?? "Reject").ToLowerInvariant();
+                                var iconClass = decision.Contains("select") ? "select" : decision.Contains("consider") ? "consider" : "reject";
+                                var icon = decision.Contains("select") ? "fa-check" : decision.Contains("consider") ? "fa-pause" : "fa-times";
+                                var actionText = decision.Contains("select") ? "Selected for interview" : decision.Contains("consider") ? "Marked for consideration" : "Rejected by system";
+                                
+                                <div class="activity-item">
+                                    <div class="activity-icon @iconClass"><i class="fas @icon"></i></div>
+                                    <div class="activity-content">
+                                        <div class="activity-text">
+                                            <strong>@c.CandidateName</strong> scored <strong>@Math.Round(c.OverallScore)%</strong> and was <strong>@actionText.ToLower()</strong>.
+                                        </div>
+                                        <div class="activity-time">@c.Timestamp.ToLocalTime().ToString("MMM dd, yyyy - HH:mm")</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Candidate Management Row -->
+        <section>
+            <div class="section-title"><i class="fas fa-users"></i> Candidate Management</div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fas fa-medal"></i> Top Ranked Candidates</div>
+                    <a href="/Resume" class="panel-action">View All <i class="fas fa-chevron-right"></i></a>
+                </div>
+                <div class="table-responsive">
+                    @if (top == null || top.Count == 0)
+                    {
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>No candidates processed yet.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>ATS Score</th>
+                                    <th>ML Confidence</th>
+                                    <th>Experience</th>
+                                    <th>Skills</th>
+                                    <th>Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in top)
+                                {
+                                    var decision = (c.Decision ?? "Reject").ToLowerInvariant();
+                                    var badgeClass = decision.Contains("select") ? "select" : decision.Contains("consider") ? "consider" : "reject";
+                                    var badgeText = decision.Contains("select") ? "Selected" : decision.Contains("consider") ? "Consider" : "Rejected";
+                                    
+                                    <tr>
+                                        <td>
+                                            <div class="candidate-name">@c.CandidateName</div>
+                                        </td>
+                                        <td>
+                                            <div class="score-bar-bg"><div class="score-bar-fill" style="width: @Math.Round(c.OverallScore)%;"></div></div>
+                                            <span style="font-size: 0.8rem; font-weight: 600;">@Math.Round(c.OverallScore)%</span>
+                                        </td>
+                                        <td>@Math.Round(c.MlConfidence * 100)%</td>
+                                        <td><span class="meta-stat"><i class="fas fa-briefcase"></i> @c.ExperienceCount roles</span></td>
+                                        <td><span class="meta-stat"><i class="fas fa-code"></i> @c.SkillsCount</span></td>
+                                        <td><span class="badge @badgeClass">@badgeText</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Count Up Animation
+        document.querySelectorAll('.count-up').forEach(el => {
+            const target = parseFloat(el.getAttribute('data-target') || '0') || 0;
+            const duration = 1000;
+            const start = performance.now();
+            const step = (t) => {
+                const p = Math.min((t - start) / duration, 1);
+                // easeOutQuart
+                const ease = 1 - Math.pow(1 - p, 4);
+                const val = Math.round(target * ease);
+                el.textContent = val.toString();
+                if (p < 1) requestAnimationFrame(step);
+                else el.textContent = target.toString();
+            };
+            requestAnimationFrame(step);
+        });
+
+        // Initialize Chart.js with dark theme settings
+        Chart.defaults.color = '#94A3B8';
+        Chart.defaults.font.family = 'Inter';
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)';
+        Chart.defaults.plugins.tooltip.titleColor = '#F9FAFB';
+        Chart.defaults.plugins.tooltip.bodyColor = '#D1D5DB';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.1)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+
+        // Data arrays derived from model data (using safe defaults if empty)
+        const selectedCount = parseInt('@ViewBag.SelectedCount') || 0;
+        const considerCount = parseInt('@ViewBag.ConsiderCount') || 0;
+        const rejectedCount = parseInt('@ViewBag.RejectedCount') || 0;
+        
+        // 1. Score Distribution (Bar Chart)
+        new Chart(document.getElementById('scoreDistChart'), {
+            type: 'bar',
+            data: {
+                labels: ['<50', '50-60', '60-70', '70-80', '80-90', '>90'],
+                datasets: [{
+                    label: 'Candidates',
+                    data: [1, 2, 5, 8, 4, 2], // Mock distribution
+                    backgroundColor: '#3B82F6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 2. Selection Ratio (Doughnut Chart)
+        new Chart(document.getElementById('selectionChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Selected', 'Consider', 'Rejected'],
+                datasets: [{
+                    data: [selectedCount || 10, considerCount || 5, rejectedCount || 15],
+                    backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+                    borderWidth: 0,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                }
+            }
+        });
+
+        // 3. Screening Summary (Radar Chart)
+        new Chart(document.getElementById('screeningChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Skills', 'Experience', 'Education', 'Projects', 'Certifications'],
+                datasets: [{
+                    label: 'Avg Cohort Score',
+                    data: [85, 70, 90, 60, 45], // Mock aggregate
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: '#3B82F6',
+                    pointBackgroundColor: '#3B82F6',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255,255,255,0.05)' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        pointLabels: { color: '#94A3B8', font: { size: 11 } },
+                        ticks: { display: false, max: 100 }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 4. Candidate Processing Volume (Line Chart)
+        new Chart(document.getElementById('volumeChart'), {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Processed',
+                    data: [5, 12, 8, 15, 22, 9, 14], // Mock trend
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    </script>
+</body>
+</html>

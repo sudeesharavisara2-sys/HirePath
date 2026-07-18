@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Resume AI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ats.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ats_dashboard.css" asp-append-version="true" />
+    <script src="~/js/ats.js" asp-append-version="true"></script>
+    <script src="~/js/ats_dashboard.js" asp-append-version="true"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #0B0F19; color: #F9FAFB; min-height: 100vh; }
+        .nav { background: rgba(17,24,39,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; color: #F9FAFB; text-decoration: none; font-weight: 700; font-size: 1.05rem; }
+        .nav-brand:hover { color: #10B981; }
+        .nav-brand i { font-size: 1.3rem; color: #10B981; }
+        .nav-links { display: flex; gap: 0.25rem; }
+        .nav-link { color: #94A3B8; text-decoration: none; padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+        .nav-link:hover { color: #F9FAFB; background: rgba(255,255,255,0.05); }
+        .nav-link.active { color: #10B981; background: rgba(16,185,129,0.1); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .footer { text-align: center; padding: 1.5rem; color: #4B5563; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.04); }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand"><i class="fas fa-sparkles"></i>Resume AI</a>
+        <div class="nav-links">
+            <a href="/" class="nav-link active"><i class="fas fa-home me-1"></i>Home</a>
+            <a href="/Resume" class="nav-link"><i class="fas fa-file-alt me-1"></i>Screening</a>
+        </div>
+    </nav>
+    <div class="container">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+    <div class="footer">&copy; 2026 - Resume AI Screening Platform</div>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

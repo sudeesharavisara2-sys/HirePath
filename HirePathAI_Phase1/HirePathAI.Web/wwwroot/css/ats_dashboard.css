@@ -1,0 +1,117 @@
+/* ats_dashboard.css - Professional ATS UI styling */
+/* Global theme */
+:root {
+  --primary-green: #10B981; /* Emerald */
+  --primary-dark: #111827;
+  --bg-dark: #0B0F19;
+  --text-light: #F9FAFB;
+  --text-muted: #94A3B8;
+  --border-muted: rgba(255,255,255,0.06);
+  --radius: 12px;
+}
+
+/* Container adjustments */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.5rem;
+}
+
+.dashboard-section {
+  background: var(--primary-dark);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.dashboard-section h3 {
+  font-size: 1.2rem;
+  color: var(--text-light);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-section .gauge {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.dashboard-section .gauge .gauge-track {
+  background: rgba(255,255,255,0.04);
+}
+
+.dashboard-section .gauge .gauge-fill {
+  background: conic-gradient(var(--primary-green) 0deg, var(--primary-green) var(--gp)deg, transparent var(--gp)deg);
+  mask: radial-gradient(circle at center, transparent 63%, #000 64%);
+}
+
+.dashboard-section .gauge .gauge-ctr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-section .gauge .gauge-num {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-green);
+}
+
+/* Radar / bar charts */
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-height: 300px;
+}
+
+/* Skill tags */
+.skill-tag {
+  display: inline-block;
+  background: rgba(16,185,129,0.12);
+  color: #6EE7B7;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  margin: 0.15rem;
+}
+
+/* Strengths / Weaknesses */
+.list-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.list-panel li {
+  color: var(--text-light);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.list-panel li .icon {
+  color: var(--primary-green);
+}
+
+/* Responsive layout */
+@media (min-width: 768px) {
+  .dashboard {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+  .dashboard-section {
+    flex: 1 1 calc(50% - 1rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-section {
+    flex: 1 1 calc(33% - 1rem);
+  }
+}

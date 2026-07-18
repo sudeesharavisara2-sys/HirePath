@@ -1,0 +1,6 @@
+@{
+    ViewData["Title"] = "Resume Screening";
+    Layout = null;
+}
+
+@* Backup of original Resume Index *@

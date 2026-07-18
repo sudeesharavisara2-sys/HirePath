@@ -1,0 +1,172 @@
+@model HirePathAI.Presentation.Models.JobCreationViewModel
+@{
+    ViewData["Title"] = "Create Job";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Job - Resume AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #0B0F19; color: #F9FAFB; min-height: 100vh; }
+        .nav { background: rgba(17,24,39,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; color: #F9FAFB; text-decoration: none; font-weight: 700; font-size: 1.05rem; }
+        .nav-brand i { font-size: 1.3rem; color: #10B981; }
+        .nav-links { display: flex; gap: 0.25rem; }
+        .nav-link { color: #94A3B8; text-decoration: none; padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+        .nav-link:hover { color: #F9FAFB; background: rgba(255,255,255,0.05); }
+        .nav-link.active { color: #10B981; background: rgba(16,185,129,0.1); }
+        
+        .main { flex: 1; padding: 2rem; max-width: 800px; margin: 0 auto; width: 100%; }
+        .page-header { margin-bottom: 2rem; }
+        .page-title { font-size: 1.5rem; font-weight: 700; color: #E5E7EB; margin-bottom: 0.5rem; }
+        .page-desc { color: #94A3B8; font-size: 0.9rem; }
+        
+        .form-card { background: #111827; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 2rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; font-size: 0.85rem; font-weight: 600; color: #D1D5DB; margin-bottom: 0.5rem; }
+        .form-control { width: 100%; background: rgba(17,24,39,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #F9FAFB; padding: 0.75rem 1rem; font-size: 0.9rem; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+        .form-control:focus { outline: none; border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+        
+        .template-selector { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .template-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #D1D5DB; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .template-btn:hover { background: rgba(255,255,255,0.1); }
+        .template-btn.active { background: rgba(16,185,129,0.1); border-color: #10B981; color: #10B981; }
+        
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        
+        .btn-submit { background: #10B981; color: #fff; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; margin-top: 1rem; }
+        .btn-submit:hover { background: #059669; }
+        .help-text { font-size: 0.75rem; color: #6B7280; margin-top: 0.4rem; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="nav">
+    <a href="/" class="nav-brand"><i class="fas fa-sparkles"></i>Resume AI</a>
+    <div class="nav-links">
+        <a href="/" class="nav-link"><i class="fas fa-home me-1"></i>Home</a>
+        <a href="/Job" class="nav-link active"><i class="fas fa-briefcase me-1"></i>Jobs</a>
+        <a href="/Resume" class="nav-link"><i class="fas fa-file-alt me-1"></i>Screening</a>
+    </div>
+</div>
+
+<main class="main">
+    <div class="page-header">
+        <h1 class="page-title">@(ViewBag.JobId != null ? "Edit Job Requirement" : "Create Job Requirement")</h1>
+        <p class="page-desc">Define the exact criteria for this role to dynamically score candidate resumes.</p>
+    </div>
+
+    <div class="form-card">
+        <div class="form-group">
+            <label class="form-label">Technology Templates</label>
+            <div class="template-selector">
+                <button type="button" class="template-btn" onclick="applyTemplate('dotnet')">.NET Developer</button>
+                <button type="button" class="template-btn" onclick="applyTemplate('react')">React Developer</button>
+                <button type="button" class="template-btn" onclick="applyTemplate('java')">Java Backend</button>
+                <button type="button" class="template-btn" onclick="applyTemplate('data')">Data Analyst</button>
+                <button type="button" class="template-btn" onclick="applyTemplate('devops')">DevOps Engineer</button>
+                <button type="button" class="template-btn" onclick="applyTemplate('clear')"><i class="fas fa-times me-1"></i> Clear</button>
+            </div>
+        </div>
+
+        <form asp-action="@(ViewBag.JobId != null ? "Edit" : "Create")" asp-route-id="@ViewBag.JobId" method="post">
+            <div class="form-group">
+                <label class="form-label">Job Title</label>
+                <input type="text" id="Title" name="Title" class="form-control" required placeholder="e.g. Senior Software Engineer" value="@Model.Title" />
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Company Name</label>
+                    <input type="text" id="CompanyName" name="CompanyName" class="form-control" required placeholder="e.g. Acme Corp" value="@Model.CompanyName" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <input type="text" id="Department" name="Department" class="form-control" placeholder="e.g. Engineering" value="@Model.Department" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Required Skills (Comma separated)</label>
+                <textarea id="RequiredSkillsCsv" name="RequiredSkillsCsv" class="form-control" rows="2" placeholder="e.g. C#, .NET Core, SQL Server" required>@Model.RequiredSkillsCsv</textarea>
+                <span class="help-text">Candidates missing these skills will be heavily penalized.</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Preferred Skills (Comma separated)</label>
+                <textarea id="OptionalSkillsCsv" name="OptionalSkillsCsv" class="form-control" rows="2" placeholder="e.g. Docker, Azure, Redis">@Model.OptionalSkillsCsv</textarea>
+                <span class="help-text">These skills add bonus points but are not strictly required.</span>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Minimum Years Experience</label>
+                    <input type="number" id="MinimumYearsExperience" name="MinimumYearsExperience" class="form-control" min="0" value="@Model.MinimumYearsExperience" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Minimum Education Level</label>
+                    <select id="MinimumEducationLevel" name="MinimumEducationLevel" class="form-control">
+                        <option value="None" selected="@(Model.MinimumEducationLevel == "None")">None</option>
+                        <option value="Associate" selected="@(Model.MinimumEducationLevel == "Associate")">Associate Degree</option>
+                        <option value="Bachelor" selected="@(string.IsNullOrEmpty(Model.MinimumEducationLevel) || Model.MinimumEducationLevel == "Bachelor")">Bachelor's Degree</option>
+                        <option value="Master" selected="@(Model.MinimumEducationLevel == "Master")">Master's Degree</option>
+                        <option value="PhD" selected="@(Model.MinimumEducationLevel == "PhD")">PhD</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">@(ViewBag.JobId != null ? "Save Changes" : "Create Job Requirement")</button>
+        </form>
+    </div>
+</main>
+
+<script>
+    const templates = {
+        'dotnet': {
+            title: 'Senior .NET Developer',
+            req: 'C#, .NET Core, ASP.NET Core, SQL Server, Entity Framework',
+            opt: 'Azure, Docker, Microservices, Redis'
+        },
+        'react': {
+            title: 'Frontend React Engineer',
+            req: 'React, JavaScript, TypeScript, HTML, CSS',
+            opt: 'Redux, Webpack, Jest, Tailwind'
+        },
+        'java': {
+            title: 'Java Backend Engineer',
+            req: 'Java, Spring Boot, Hibernate, SQL',
+            opt: 'AWS, Kafka, Kubernetes, CI/CD'
+        },
+        'data': {
+            title: 'Data Analyst',
+            req: 'Python, SQL, Tableau, Excel',
+            opt: 'Machine Learning, R, PowerBI'
+        },
+        'devops': {
+            title: 'DevOps Engineer',
+            req: 'Linux, Docker, Kubernetes, CI/CD, Jenkins',
+            opt: 'Terraform, AWS, Azure, Ansible'
+        },
+        'clear': {
+            title: '', req: '', opt: ''
+        }
+    };
+
+    function applyTemplate(key) {
+        document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+        if(key !== 'clear') event.target.classList.add('active');
+        
+        const data = templates[key];
+        document.getElementById('Title').value = data.title;
+        document.getElementById('RequiredSkillsCsv').value = data.req;
+        document.getElementById('OptionalSkillsCsv').value = data.opt;
+    }
+</script>
+</body>
+</html>

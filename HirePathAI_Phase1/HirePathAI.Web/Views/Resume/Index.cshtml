@@ -1,0 +1,866 @@
+@{
+    ViewData["Title"] = "Resume Screening";
+    Layout = null;
+}
+
+@{
+    var hasResult = ViewBag.Decision != null;
+    var decision = ViewBag.Decision?.ToString() ?? "";
+    var isStrong = decision == "Selected";
+    var isPotential = decision == "Consider";
+    var decisionColor = isStrong ? "#10B981" : isPotential ? "#F59E0B" : "#EF4444";
+
+    object _so = ViewBag.ScoreOverall;     var overallScore = hasResult ? Math.Round(Convert.ToDouble(_so ?? 0.0)) : 0.0;
+    object _ss = ViewBag.ScoreSkills;      var skillsScore  = hasResult ? Math.Round(Convert.ToDouble(_ss ?? 0.0)) : 0.0;
+    object _se = ViewBag.ScoreExperience;  var expScore     = hasResult ? Math.Round(Convert.ToDouble(_se ?? 0.0)) : 0.0;
+    object _sd = ViewBag.ScoreEducation;   var eduScore     = hasResult ? Math.Round(Convert.ToDouble(_sd ?? 0.0)) : 0.0;
+    object _sp = ViewBag.ScoreProject;     var projScore    = hasResult ? Math.Round(Convert.ToDouble(_sp ?? 0.0)) : 0.0;
+    object _sc = ViewBag.ScoreCertification; var certScore  = hasResult ? Math.Round(Convert.ToDouble(_sc ?? 0.0)) : 0.0;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ATS Resume Screening</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #0B0F19; color: #F9FAFB; min-height: 100vh; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0B0F19; }
+        ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+        .nav { background: rgba(17,24,39,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; color: #F9FAFB; text-decoration: none; font-weight: 700; font-size: 1.05rem; }
+        .nav-brand:hover { color: #10B981; }
+        .nav-brand i { font-size: 1.3rem; color: #10B981; }
+        .nav-links { display: flex; gap: 0.25rem; }
+        .nav-link { color: #94A3B8; text-decoration: none; padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+        .nav-link:hover { color: #F9FAFB; background: rgba(255,255,255,0.05); }
+        .nav-link.active { color: #10B981; background: rgba(16,185,129,0.1); }
+        .main { flex: 1; padding: 1.5rem 2rem; max-width: 1600px; margin: 0 auto; width: 100%; }
+
+        .glass { background: #111827; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+        .glass-h { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em; }
+        .glass-h i { font-size: 0.85rem; color: #10B981; }
+        .main { flex: 1; padding: 1.5rem 2rem; max-width: 1600px; margin: 0 auto; }
+        .glass { background: #111827; border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius); overflow: hidden; }
+        .glass-h { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; font-weight: 600; color: #94A3B8; text-transform: uppercase; }
+        .glass-b { padding: 1.25rem; }
+        .split { display: flex; gap: 1.5rem; min-height: calc(100vh - 100px); }
+        .split-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1rem; max-width: 55%; }
+        .split-right { width: 45%; min-width: 380px; display: flex; flex-direction: column; gap: 1rem; }
+        .drop-zone { border: 2px dashed rgba(255,255,255,0.12); border-radius: var(--radius); padding: 3rem 2rem; background: rgba(17,24,39,0.6); cursor: pointer; transition: all 0.3s ease; text-align: center; width: 100%; max-width: 100%; margin: 0 auto; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #10B981; background: rgba(16,185,129,0.05); box-shadow: 0 0 30px rgba(16,185,129,0.08); }
+        .drop-zone-icon { font-size: 2.5rem; color: #10B981; margin-bottom: 1rem; opacity: 0.8; }
+        .drop-zone h4 { font-weight: 600; font-size: 1.05rem; margin-bottom: 0.3rem; }
+        .drop-zone p { color: #6B7280; font-size: 0.82rem; }
+        .drop-zone-input { position: absolute; width: 0; height: 0; opacity: 0; }
+        .browse-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #F9FAFB; padding: 0.5rem 1.3rem; border-radius: 10px; font-size: 0.82rem; cursor: pointer; margin-top: 0.5rem; }
+        .file-info { display: none; padding: 0.5rem 1rem; background: rgba(16,185,129,0.1); border-radius: 10px; color: #6EE7B7; font-size: 0.82rem; margin-top: 0.5rem; }
+        .progress-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 0.5rem; display: none; }
+        .progress-fill { width: 0%; height: 100%; background: #10B981; transition: width 0.4s ease; }
+        .invalid { animation: shake 0.4s; }
+        @@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
+        .or-div { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; color: #4B5563; font-size: 0.78rem; }
+        .or-div::before, .or-div::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+        .paste-ta { background: rgba(17,24,39,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #F9FAFB; padding: 0.85rem; font-size: 0.82rem; width: 100%; min-height: 80px; resize: vertical; }
+        .btn-primary { background: #10B981; color: #fff; border: none; padding: 0.7rem 2rem; border-radius: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(11,15,25,0.92); backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center; }
+        .overlay.show { display: flex; }
+        .overlay-panel { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 2.5rem; width: 480px; }
+        /* Workflow stepper (server-driven) */
+        .wf-list { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+        .wf-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 0.75rem; align-items: center; padding: 0.65rem 0.75rem; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; background: rgba(255,255,255,0.02); opacity: 0.5; transition: opacity 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+        .wf-step[data-state="active"] { opacity: 1; border-color: rgba(16,185,129,0.35); transform: translateY(-1px); box-shadow: 0 10px 30px rgba(16,185,129,0.08); }
+        .wf-step[data-state="done"] { opacity: 1; border-color: rgba(255,255,255,0.10); }
+        .wf-ico { width: 34px; height: 34px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(16,185,129,0.10); color: #10B981; }
+        .wf-title { font-size: 0.86rem; font-weight: 650; color: #E5E7EB; line-height: 1.15; }
+        .wf-sub { font-size: 0.75rem; color: #94A3B8; margin-top: 0.15rem; }
+        .wf-pill { font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); color: #94A3B8; }
+        .wf-step[data-state="active"] .wf-pill { color: #6EE7B7; border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.10); }
+        .wf-step[data-state="done"] .wf-pill { color: #D1D5DB; }
+        .particle { pointer-events: none; position: absolute; }
+        .preview-box { font-family: 'Courier New', monospace; font-size: 0.75rem; color: #D1D5DB; white-space: pre-wrap; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 10px; max-height: 480px; overflow-y: auto; }
+        .hl-skill { background: rgba(16,185,129,0.15); color: #6EE7B7; }
+        .hl-email { background: rgba(59,130,246,0.15); color: #93C5FD; }
+        .hl-phone { background: rgba(249,115,22,0.15); color: #FDBA74; }
+        .banner { background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04)); border: 1px solid rgba(16,185,129,0.2); border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+        .gauge { position: relative; width: 130px; height: 130px; flex-shrink: 0; }
+        .gauge-track { width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.04); }
+        .gauge-fill { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--gc) 0deg, var(--gc) calc(var(--gp)*3.6deg), transparent calc(var(--gp)*3.6deg)); mask: radial-gradient(circle at center, transparent 63%, #000 64%); }
+        .gauge-ctr { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .gauge-num { font-size: 2rem; font-weight: 800; color: var(--gc); }
+        .dim { display: flex; align-items: center; gap: 0.5rem; }
+        .dim-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; }
+        .dim-fill { height: 100%; border-radius: 2px; }
+        .tag { padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+        .tag.be { background: rgba(59,130,246,0.12); color: #93C5FD; }
+        .tag.fe { background: rgba(236,72,153,0.12); color: #F9A8D4; }
+        .tag.db { background: rgba(249,115,22,0.12); color: #FDBA74; }
+        .tag.cld { background: rgba(16,185,129,0.12); color: #6EE7B7; }
+        .tag.tls { background: rgba(139,92,246,0.12); color: #C4B5FD; }
+        .tag.lang { background: rgba(34,211,238,0.12); color: #67E8F9; }
+        .tl { position: relative; padding-left: 1.5rem; }
+        .tl-item { position: relative; padding: 0 0 0.9rem 1rem; }
+        .tl-dot { position: absolute; left: -1.3rem; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #10B981; }
+        .edu-item { padding: 0.45rem 0; display: flex; align-items: flex-start; gap: 0.75rem; }
+        .edu-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; color: #10B981; }
+
+        /* ===== DASHBOARD GRID (inlined from ats_dashboard.css) ===== */
+        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; padding: 0; }
+        @@media (max-width: 1100px) { .dashboard { grid-template-columns: repeat(2, 1fr); } }
+        @@media (max-width: 640px)  { .dashboard { grid-template-columns: 1fr; } }
+        .dashboard-section { background: #111827; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 1.25rem; }
+        .dashboard-section h3 { font-size: 0.82rem; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .dashboard-section h3 i { color: #10B981; }
+        /* Gauge fix: use explicit color via --gc fallback */
+        .gauge-fill { background: conic-gradient(#10B981 0deg, #10B981 calc(var(--gp, 0) * 3.6deg), rgba(255,255,255,0.04) calc(var(--gp, 0) * 3.6deg)) !important; }
+        .gauge-num { color: #10B981 !important; }
+        .gauge-wrap { display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 0.5rem; }
+        /* Skill / Missing cloud */
+        .skill-cloud { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .skill-tag { display: inline-block; background: rgba(16,185,129,0.12); color: #6EE7B7; padding: 0.2rem 0.65rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+        .missing-tag { display: inline-block; background: rgba(239,68,68,0.1); color: #FCA5A5; padding: 0.2rem 0.65rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+        /* List panel */
+        .list-panel { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+        .list-panel li { font-size: 0.85rem; color: #D1D5DB; display: flex; align-items: flex-start; gap: 0.5rem; line-height: 1.45; }
+        .list-panel li i.fa-check { color: #10B981; margin-top: 2px; }
+        .list-panel li i.fa-times { color: #EF4444; margin-top: 2px; }
+        /* Timeline */
+        .timeline { display: flex; flex-direction: column; gap: 0.6rem; }
+        .timeline-item { font-size: 0.84rem; color: #D1D5DB; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid #10B981; }
+        /* Decision banner */
+        .decision-banner { border-radius: 14px; padding: 1.1rem 1.4rem; display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+        .decision-banner.selected { background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.06)); border: 1px solid rgba(16,185,129,0.3); }
+        .decision-banner.rejected { background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05)); border: 1px solid rgba(239,68,68,0.25); }
+        .decision-banner.consider  { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid rgba(245,158,11,0.25); }
+        .decision-icon { font-size: 2rem; }
+        .decision-label { font-size: 1.1rem; font-weight: 700; }
+        .decision-sub { font-size: 0.82rem; color: #94A3B8; }
+        /* Score bar */
+        .score-bar-wrap { margin-bottom: 0.6rem; }
+        .score-bar-label { display: flex; justify-content: space-between; font-size: 0.78rem; color: #94A3B8; margin-bottom: 0.3rem; }
+        .score-bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+        .score-bar-fill { height: 100%; background: #10B981; border-radius: 3px; transition: width 1s ease; }
+        /* Analysis steps (replace overlay) */
+        .analysis-steps { display: flex; flex-direction: column; gap: 0.4rem; }
+        .analysis-step { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #94A3B8; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .analysis-step i { color: #10B981; width: 16px; text-align: center; }
+        /* Charts */
+        .chart-box { position: relative; width: 100%; height: 240px; }
+        .chart-box canvas { width: 100% !important; height: 240px !important; }
+        /* Reset btn */
+        .btn-reset { display: inline-flex; align-items: center; gap: 0.5rem; background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #94A3B8; padding: 0.5rem 1.2rem; border-radius: 10px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
+        .btn-reset:hover { border-color: #10B981; color: #10B981; }
+    </style>
+</head>
+<body>
+
+<div class="nav">
+    <a href="/" class="nav-brand"><i class="fas fa-sparkles"></i>Resume AI</a>
+    <div class="nav-links">
+        <a href="/" class="nav-link"><i class="fas fa-home me-1"></i>Home</a>
+        <a href="/Resume" class="nav-link active"><i class="fas fa-file-alt me-1"></i>Screening</a>
+    </div>
+</div>
+
+<main class="main">
+@if (ViewBag.Error != null)
+{
+    <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:0.85rem 1.15rem;color:#FCA5A5;margin-bottom:1rem;">
+        <i class="fas fa-exclamation-triangle me-2"></i>@ViewBag.Error
+    </div>
+}
+
+<div class="overlay" id="analysisOverlay">
+    <div class="overlay-panel">
+        <h3 style="display:flex;align-items:center;gap:0.5rem;position:relative;">
+            <i class="fas fa-brain" style="color:#10B981;"></i>
+            AI Analyzing Resume
+            <div id="particleContainer" style="position:absolute; inset:0; pointer-events:none; overflow:hidden;"></div>
+        </h3>
+        <ol class="wf-list" id="wfList">
+            <li class="wf-step" data-wf="resume_upload" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-file-upload"></i></div>
+                <div>
+                    <div class="wf-title">Resume Upload</div>
+                    <div class="wf-sub">Receive PDF/text input</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="resume_parsing" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-file-pdf"></i></div>
+                <div>
+                    <div class="wf-title">Resume Parsing</div>
+                    <div class="wf-sub">Extract and normalize content</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="skills_extraction" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-code"></i></div>
+                <div>
+                    <div class="wf-title">Skills Extraction</div>
+                    <div class="wf-sub">Parse skills from resume</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="experience_analysis" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-briefcase"></i></div>
+                <div>
+                    <div class="wf-title">Experience Analysis</div>
+                    <div class="wf-sub">Infer roles, tenure, signals</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="education_analysis" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-graduation-cap"></i></div>
+                <div>
+                    <div class="wf-title">Education Analysis</div>
+                    <div class="wf-sub">Identify degrees and institutions</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="certification_analysis" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-certificate"></i></div>
+                <div>
+                    <div class="wf-title">Certification Analysis</div>
+                    <div class="wf-sub">Extract certifications and badges</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="mlnet_prediction" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-brain"></i></div>
+                <div>
+                    <div class="wf-title">ML.NET Prediction</div>
+                    <div class="wf-sub">Compute selection probability</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="ats_scoring" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-gauge-high"></i></div>
+                <div>
+                    <div class="wf-title">ATS Scoring</div>
+                    <div class="wf-sub">Compute weighted ATS score</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="decision_engine" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-sitemap"></i></div>
+                <div>
+                    <div class="wf-title">Decision Engine</div>
+                    <div class="wf-sub">Selected / Consider / Rejected</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+            <li class="wf-step" data-wf="final_result" data-state="pending">
+                <div class="wf-ico"><i class="fas fa-flag-checkered"></i></div>
+                <div>
+                    <div class="wf-title">Final Result</div>
+                    <div class="wf-sub">Render dashboard and charts</div>
+                </div>
+                <span class="wf-pill">Waiting</span>
+            </li>
+        </ol>
+    </div>
+</div>
+
+@if (!hasResult)
+{
+    <div class="split">
+        <div class="split-left">
+            <div class="glass">
+                <div class="glass-h"><i class="fas fa-cloud-upload-alt"></i>Upload Resume</div>
+                <div class="glass-b">
+                    <form method="post" enctype="multipart/form-data" id="resumeForm">
+                        @if (ViewBag.Jobs != null && ((IEnumerable<HirePathAI.Application.DTOs.JobRequirementDto>)ViewBag.Jobs).Any())
+                        {
+                            <div style="margin-bottom: 1.5rem; text-align: left;">
+                                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #D1D5DB; margin-bottom: 0.5rem;">Target Job Role</label>
+                                <select name="jobId" style="width: 100%; background: rgba(17,24,39,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #F9FAFB; padding: 0.75rem 1rem; font-size: 0.9rem;" required>
+                                    <option value="">-- Select Job Requirement --</option>
+                                    @foreach (var job in ViewBag.Jobs)
+                                    {
+                                        <option value="@job.Id">@job.Title (@job.CompanyName)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="drop-zone" id="dropZone">
+                                <div class="drop-zone-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                                <h4>Drop resume PDF here</h4>
+                                <p>or click to browse &middot; PDF up to 10MB</p>
+                                <input type="file" id="resumeFile" name="resumeFile" accept=".pdf" class="drop-zone-input" />
+                                <button type="button" class="browse-btn" onclick="document.getElementById('resumeFile').click()">Browse Files</button>
+                                <div class="file-info" id="fileInfo"><span id="fileName"></span></div>
+                                <div class="progress-bar" id="uploadProgress"><div class="progress-fill"></div></div>
+                            </div>
+                            <div id="pdfPreview" class="preview-box" style="display:none; margin-top:0.5rem;"></div>
+                            <div class="or-div"><span>or paste resume text</span></div>
+                            <textarea id="resumeText" name="resumeText" class="paste-ta" rows="4"></textarea>
+                            <div style="text-align:center;margin-top:1rem;"><button type="submit" class="btn-primary" id="analyzeBtn">Analyze Resume</button></div>
+                        }
+                        else
+                        {
+                            <div style="text-align:center; padding: 2rem;">
+                                <i class="fas fa-exclamation-circle" style="font-size: 2.5rem; color: #F59E0B; margin-bottom: 1rem;"></i>
+                                <h4 style="color: #E5E7EB; margin-bottom: 0.5rem;">No active job roles found</h4>
+                                <p style="color: #94A3B8; font-size: 0.85rem; margin-bottom: 1.5rem;">You must create at least one job requirement before screening a candidate.</p>
+                                <a href="/Job/Create" class="btn-primary">Create Job Role</a>
+                            </div>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="split-right">
+            <div class="glass"><div class="glass-h">AI Dashboard</div><div class="glass-b" style="text-align:center;">Awaiting Upload...</div></div>
+        </div>
+    </div>
+}
+
+@if (hasResult)
+{
+    var bannerClass = isStrong ? "selected" : isPotential ? "consider" : "rejected";
+    var bannerIcon  = isStrong ? "fa-check-circle" : isPotential ? "fa-minus-circle" : "fa-times-circle";
+    var bannerLabel = isStrong ? "Selected" : isPotential ? "Consider" : "Rejected";
+    <div id="dataContainer"
+      data-ats="@ViewBag.ScoreOverall"
+      data-confidence="@ViewBag.ScoreConfidence"
+      data-score-skills="@skillsScore"
+      data-score-exp="@expScore"
+      data-score-edu="@eduScore"
+      data-score-proj="@projScore"
+      data-score-cert="@certScore"
+      data-skills='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedSkills ?? new List<string>()))'
+      data-education='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedEducation ?? new List<string>()))'
+      data-certifications='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedCertifications ?? new List<string>()))'
+      data-strengths='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Strengths ?? new List<string>()))'
+      data-weaknesses='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Weaknesses ?? new List<string>()))'
+      data-experience='@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedExperience ?? new List<string>()))'
+      style="display:none;"></div>
+
+    <!-- Decision Banner -->
+    <div class="decision-banner @bannerClass">
+        <i class="fas @bannerIcon decision-icon" style="color:@decisionColor;"></i>
+        <div>
+            <div class="decision-label" style="color:@decisionColor;">@bannerLabel</div>
+            <div class="decision-sub">Overall ATS Score: <strong style="color:@decisionColor;">@overallScore%</strong> &middot; ML Confidence: <strong>@(hasResult ? Math.Round(Convert.ToDouble(ViewBag.ScoreConfidence ?? 0.0)) : 0)%</strong></div>
+        </div>
+        <button class="btn-reset" style="margin-left:auto;" onclick="resetForm()"><i class="fas fa-redo"></i> New Analysis</button>
+    </div>
+
+    <!-- Score Bars -->
+    <div class="dashboard-section" style="margin-bottom:1.25rem;">
+        <h3><i class="fas fa-chart-bar"></i> Score Breakdown</h3>
+        <div class="score-bar-wrap"><div class="score-bar-label"><span>Skills</span><span>@skillsScore%</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:@skillsScore%;"></div></div></div>
+        <div class="score-bar-wrap"><div class="score-bar-label"><span>Experience</span><span>@expScore%</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:@expScore%; background:#F59E0B;"></div></div></div>
+        <div class="score-bar-wrap"><div class="score-bar-label"><span>Education</span><span>@eduScore%</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:@eduScore%; background:#3B82F6;"></div></div></div>
+        <div class="score-bar-wrap"><div class="score-bar-label"><span>Projects</span><span>@projScore%</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:@projScore%; background:#8B5CF6;"></div></div></div>
+        <div class="score-bar-wrap"><div class="score-bar-label"><span>Certifications</span><span>@certScore%</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:@certScore%; background:#EC4899;"></div></div></div>
+    </div>
+
+    <div class="dashboard">
+        <!-- ATS Score Gauge -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-clipboard-check"></i> ATS Score</h3>
+            <div class="gauge-wrap">
+                <div class="gauge" id="atsGauge">
+                    <div class="gauge-track"></div>
+                    <div class="gauge-fill" id="atsGaugeFill" style="--gp:0;"></div>
+                    <div class="gauge-ctr"><div class="gauge-num" id="atsGaugeNum">0</div></div>
+                </div>
+            </div>
+        </div>
+        <!-- ML Confidence Gauge -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-brain"></i> ML Confidence</h3>
+            <div class="gauge-wrap">
+                <div class="gauge" id="confidenceGauge">
+                    <div class="gauge-track"></div>
+                    <div class="gauge-fill" id="confidenceGaugeFill" style="--gp:0;"></div>
+                    <div class="gauge-ctr"><div class="gauge-num" id="confidenceGaugeNum">0</div></div>
+                </div>
+            </div>
+        </div>
+        <!-- Score Radar -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-chart-area"></i> Score Radar</h3>
+            <div class="chart-box"><canvas id="dimensionRadar"></canvas></div>
+        </div>
+        <!-- Dimension Bars -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-sliders"></i> Dimension Scores</h3>
+            <div class="chart-box"><canvas id="dimensionBars"></canvas></div>
+        </div>
+        <!-- Skills Cloud -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-code"></i> Skills</h3>
+            <div id="skillCloud" class="skill-cloud"></div>
+        </div>
+        <!-- Experience -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-briefcase"></i> Experience</h3>
+            <div id="expTimeline" class="timeline"></div>
+        </div>
+        <!-- Education -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-graduation-cap"></i> Education</h3>
+            <ul id="educationList" class="list-panel"></ul>
+        </div>
+        <!-- Certifications -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-certificate"></i> Certifications</h3>
+            <ul id="certList" class="list-panel"></ul>
+        </div>
+        <!-- Strengths -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-check"></i> Strengths</h3>
+            <ul id="strengthsList" class="list-panel"></ul>
+        </div>
+        <!-- Weaknesses -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-times"></i> Weaknesses</h3>
+            <ul id="weaknessesList" class="list-panel"></ul>
+        </div>
+        <!-- Missing Skills -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-exclamation-triangle"></i> Missing Skills</h3>
+            <div id="missingSkills" class="skill-cloud"></div>
+        </div>
+        <!-- AI Analysis Steps -->
+        <div class="dashboard-section">
+            <h3><i class="fas fa-tasks"></i> AI Analysis Steps</h3>
+            <div class="analysis-steps">
+                <div class="analysis-step"><i class="fas fa-check"></i> PDF Uploaded & Parsed</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> Candidate Info Identified</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> Skills Extracted</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> Experience Evaluated</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> Education Scored</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> ML.NET Prediction Complete</div>
+                <div class="analysis-step"><i class="fas fa-check"></i> Recommendation Generated</div>
+            </div>
+        </div>
+    </div>
+}
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ===== INLINE ats_dashboard.js (Layout=null bypass fix) =====
+document.addEventListener('DOMContentLoaded', function () {
+    var dataEl = document.getElementById('dataContainer');
+    if (!dataEl) return;
+    var atsScore   = parseFloat(dataEl.getAttribute('data-ats')) || 0;
+    var confidence = parseFloat(dataEl.getAttribute('data-confidence')) || 0;
+    var skills         = JSON.parse(dataEl.getAttribute('data-skills')         || '[]');
+    var education      = JSON.parse(dataEl.getAttribute('data-education')      || '[]');
+    var certifications = JSON.parse(dataEl.getAttribute('data-certifications') || '[]');
+    var strengths      = JSON.parse(dataEl.getAttribute('data-strengths')      || '[]');
+    var weaknesses     = JSON.parse(dataEl.getAttribute('data-weaknesses')     || '[]');
+    var experience     = JSON.parse(dataEl.getAttribute('data-experience')     || '[]');
+
+    // Gauge fill helper — uses corrected IDs
+    function setGauge(fillId, numId, value) {
+        var fill = document.getElementById(fillId);
+        var num  = document.getElementById(numId);
+        if (fill) fill.style.setProperty('--gp', Math.min(value, 100));
+        if (num)  num.textContent = Math.round(value);
+    }
+    setGauge('atsGaugeFill',        'atsGaugeNum',        atsScore);
+    setGauge('confidenceGaugeFill', 'confidenceGaugeNum', confidence);
+
+    // Skills cloud
+    var skillCloud = document.getElementById('skillCloud');
+    if (skillCloud) {
+        if (!skills.length) {
+            var sp0 = document.createElement('span'); sp0.className = 'missing-tag'; sp0.textContent = 'No skills extracted'; skillCloud.appendChild(sp0);
+        } else {
+            skills.forEach(function(s) {
+                var sp = document.createElement('span'); sp.className='skill-tag'; sp.textContent=s; skillCloud.appendChild(sp);
+            });
+        }
+    }
+
+    // Missing skills
+    var required = ['C#','.NET','ASP.NET','ASP.NET Core','Entity Framework','SQL Server','Azure','Microservices','Blazor','Web API','LINQ'];
+    var missingEl = document.getElementById('missingSkills');
+    if (missingEl) {
+        var missingCount = 0;
+        required.forEach(function(req) {
+            if (!skills.some(function(s){ return new RegExp(req,'i').test(s); })) {
+                missingCount++;
+                var sp = document.createElement('span'); sp.className='missing-tag'; sp.textContent=req; missingEl.appendChild(sp);
+            }
+        });
+        if (!missingCount) {
+            var sp1 = document.createElement('span'); sp1.className = 'skill-tag'; sp1.textContent = 'No gaps detected'; missingEl.appendChild(sp1);
+        }
+    }
+
+    // Education
+    var eduList = document.getElementById('educationList');
+    if (eduList) {
+        if (!education.length) {
+            var li0=document.createElement('li'); li0.textContent='No education found'; eduList.appendChild(li0);
+        } else {
+            education.forEach(function(item) {
+                var li=document.createElement('li'); li.textContent=item; eduList.appendChild(li);
+            });
+        }
+    }
+
+    // Certifications
+    var certList = document.getElementById('certList');
+    if (certList) {
+        if (!certifications.length) {
+            var li1=document.createElement('li'); li1.textContent='No certifications found'; certList.appendChild(li1);
+        } else {
+            certifications.forEach(function(c) {
+                var li=document.createElement('li'); li.textContent=c; certList.appendChild(li);
+            });
+        }
+    }
+
+    // Strengths
+    var stList = document.getElementById('strengthsList');
+    if (stList) {
+        if (!strengths.length) {
+            var li2=document.createElement('li'); li2.innerHTML='<i class="fas fa-check"></i>No strengths identified'; stList.appendChild(li2);
+        } else {
+            strengths.forEach(function(s) {
+                var li=document.createElement('li'); li.innerHTML='<i class="fas fa-check"></i>'+s; stList.appendChild(li);
+            });
+        }
+    }
+
+    // Weaknesses
+    var wkList = document.getElementById('weaknessesList');
+    if (wkList) {
+        if (!weaknesses.length) {
+            var li3=document.createElement('li'); li3.innerHTML='<i class="fas fa-times"></i>No weaknesses identified'; wkList.appendChild(li3);
+        } else {
+            weaknesses.forEach(function(w) {
+                var li=document.createElement('li'); li.innerHTML='<i class="fas fa-times"></i>'+w; wkList.appendChild(li);
+            });
+        }
+    }
+
+    // Experience timeline
+    var expTimeline = document.getElementById('expTimeline');
+    if (expTimeline) {
+        if (!experience.length) {
+            var d0=document.createElement('div'); d0.className='timeline-item'; d0.textContent='No experience found'; expTimeline.appendChild(d0);
+        } else {
+            experience.forEach(function(exp) {
+                var d=document.createElement('div'); d.className='timeline-item'; d.innerHTML=exp; expTimeline.appendChild(d);
+            });
+        }
+    }
+
+    // Charts (visible/testable)
+    if (typeof Chart !== 'undefined')
+    {
+        Chart.defaults.color = '#94A3B8';
+        Chart.defaults.font.family = 'Inter, -apple-system, sans-serif';
+
+        var dim = {
+            skills: parseFloat(dataEl.getAttribute('data-score-skills')) || 0,
+            exp: parseFloat(dataEl.getAttribute('data-score-exp')) || 0,
+            edu: parseFloat(dataEl.getAttribute('data-score-edu')) || 0,
+            proj: parseFloat(dataEl.getAttribute('data-score-proj')) || 0,
+            cert: parseFloat(dataEl.getAttribute('data-score-cert')) || 0
+        };
+
+        var radarEl = document.getElementById('dimensionRadar');
+        if (radarEl)
+        {
+            new Chart(radarEl, {
+                type: 'radar',
+                data: {
+                    labels: ['Skills', 'Experience', 'Education', 'Projects', 'Certifications'],
+                    datasets: [{
+                        data: [dim.skills, dim.exp, dim.edu, dim.proj, dim.cert],
+                        backgroundColor: 'rgba(16,185,129,0.18)',
+                        borderColor: 'rgba(16,185,129,0.85)',
+                        pointBackgroundColor: '#10B981',
+                        pointBorderColor: '#0B0F19'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.06)' },
+                            angleLines: { color: 'rgba(255,255,255,0.06)' },
+                            pointLabels: { color: '#E5E7EB', font: { size: 11, weight: '600' } },
+                            ticks: { backdropColor: 'rgba(0,0,0,0)', stepSize: 20 }
+                        }
+                    }
+                }
+            });
+        }
+
+        var barsEl = document.getElementById('dimensionBars');
+        if (barsEl)
+        {
+            new Chart(barsEl, {
+                type: 'bar',
+                data: {
+                    labels: ['Skills', 'Experience', 'Education', 'Projects', 'Certs'],
+                    datasets: [{
+                        data: [dim.skills, dim.exp, dim.edu, dim.proj, dim.cert],
+                        backgroundColor: ['#10B981', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'],
+                        borderRadius: 10,
+                        barThickness: 18
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94A3B8' } },
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { stepSize: 20 } }
+                    }
+                }
+            });
+        }
+    }
+});
+</script>
+<script>
+    const fileInput = document.getElementById('resumeFile');
+    const textarea = document.getElementById('resumeText');
+    const form = document.getElementById('resumeForm');
+    const progressBar = document.getElementById('uploadProgress');
+    const overlay = document.getElementById('analysisOverlay');
+    const dropZone = document.getElementById('dropZone');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const particleContainer = document.getElementById('particleContainer');
+    const wfSteps = Array.from(document.querySelectorAll('[data-wf]'));
+
+    function resetWorkflowUI() {
+        wfSteps.forEach(el => {
+            el.setAttribute('data-state', 'pending');
+            const pill = el.querySelector('.wf-pill');
+            if (pill) pill.textContent = 'Waiting';
+        });
+    }
+
+    function setWorkflowStep(key, state) {
+        const el = document.querySelector(`[data-wf="${key}"]`);
+        if (!el) return;
+        el.setAttribute('data-state', state);
+        const pill = el.querySelector('.wf-pill');
+        if (!pill) return;
+        if (state === 'active') pill.textContent = 'In progress';
+        else if (state === 'done') pill.textContent = 'Done';
+        else pill.textContent = 'Waiting';
+    }
+
+    // Helper to create simple particles
+    function spawnParticles() {
+        const colors = ['#10B981', '#F59E0B', '#EF4444'];
+        for (let i = 0; i < 15; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            const size = Math.random() * 6 + 4;
+            particle.style.width = size + 'px';
+            particle.style.height = size + 'px';
+            particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.position = 'absolute';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.top = Math.random() * 100 + '%';
+            particle.style.borderRadius = '50%';
+            particle.style.opacity = 0.8;
+            particle.style.transform = `scale(${Math.random() + 0.5})`;
+            particleContainer.appendChild(particle);
+            setTimeout(() => particle.remove(), 1200);
+        }
+    }
+
+    // Drag & drop handling
+    if (dropZone) {
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+    }
+
+    function handleFile(file) {
+        if (file.type !== 'application/pdf') {
+            fileInput.classList.add('invalid');
+            setTimeout(() => fileInput.classList.remove('invalid'), 600);
+            alert('Only PDF files accepted.');
+            fileInput.value = '';
+            return;
+        }
+        fileInfo.style.display = 'block';
+        fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        document.querySelector('.drop-zone h4').textContent = 'Ready: ' + file.name;
+        document.querySelector('.drop-zone p').style.display = 'none';
+
+        // Show progress bar animation
+        if (progressBar) {
+            progressBar.style.display = 'block';
+            progressBar.querySelector('.progress-fill').style.width = '0%';
+            setTimeout(() => {
+                progressBar.querySelector('.progress-fill').style.width = '100%';
+            }, 200);
+        }
+
+        // Show PDF preview
+        const preview = document.getElementById('pdfPreview');
+        if (preview) {
+            preview.innerHTML = `<iframe src="${URL.createObjectURL(file)}" style="width:100%;height:300px;border:none;"></iframe>`;
+            preview.style.display = 'block';
+        }
+    }
+
+    // File input change
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                handleFile(fileInput.files[0]);
+                if (textarea) textarea.value = '';
+            }
+        });
+    }
+
+    // Textarea input – clear file selection
+    if (textarea) {
+        textarea.addEventListener('input', () => {
+            if (textarea.value.trim()) {
+                fileInput.value = '';
+                fileInfo.style.display = 'none';
+                document.querySelector('.drop-zone h4').textContent = 'Drop resume PDF here';
+                document.querySelector('.drop-zone p').style.display = '';
+            }
+        });
+    }
+
+    // Form submit
+    if (form) {
+        let submitting = false;
+        form.addEventListener('submit', function (e) {
+            if (submitting) return;
+            const text = textarea ? textarea.value.trim() : '';
+            const file = fileInput ? fileInput.files[0] : null;
+            if (!text && !file) {
+                e.preventDefault();
+                alert('Please upload a PDF or paste resume text.');
+                return;
+            }
+            e.preventDefault();
+            if (overlay) overlay.classList.add('show');
+            resetWorkflowUI();
+            spawnParticles();
+            submitting = true;
+
+            // Prefer real server-driven workflow states via streaming.
+            // Falls back to normal form post if streaming isn't available.
+            const fd = new FormData(form);
+            startWorkflowStream(fd)
+                .catch(() => form.submit());
+        });
+    }
+
+    async function startWorkflowStream(formData) {
+        if (!window.fetch || !window.TextDecoder) throw new Error('streaming not supported');
+        const res = await fetch('/Resume/AnalyzeStream', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'text/event-stream' }
+        });
+        if (!res.ok || !res.body) throw new Error('streaming response not available');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const handleEventBlock = (block) => {
+            let eventName = 'message';
+            const dataLines = [];
+            block.split('\n').forEach(line => {
+                if (line.startsWith('event:')) eventName = line.slice(6).trim();
+                if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+            });
+            const dataRaw = dataLines.join('\n');
+            if (!dataRaw) return;
+            let payload;
+            try { payload = JSON.parse(dataRaw); } catch { payload = null; }
+
+            if (eventName === 'step' && payload && payload.key && payload.state) {
+                setWorkflowStep(payload.key, payload.state);
+            } else if (eventName === 'done' && payload && payload.resultId) {
+                window.location.href = `/Resume/Result?id=${encodeURIComponent(payload.resultId)}`;
+            } else if (eventName === 'error') {
+                const msg = payload && payload.message ? payload.message : 'Analysis failed.';
+                alert(msg);
+                if (overlay) overlay.classList.remove('show');
+            }
+        };
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer.indexOf('\n\n')) >= 0) {
+                const block = buffer.slice(0, idx);
+                buffer = buffer.slice(idx + 2);
+                if (block.trim()) handleEventBlock(block);
+            }
+        }
+    }
+
+    @if (hasResult)
+    {
+        @:
+        @:    var previewText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ResumeText?.ToString() ?? ""));
+        @:    var skillList = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedSkills as List<string> ?? new()));
+        @:    var emailVal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedEmail?.ToString() ?? ""));
+        @:    var phoneVal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ParsedPhone?.ToString() ?? ""));
+        @:
+        @:    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        @:    function highlightText(txt, items, className) {
+        @:        items.forEach(function(item) {
+        @:            var escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        @:            var re = new RegExp('\\b' + escaped + '\\b', 'gi');
+        @:            txt = txt.replace(re, function(m) { return '<span class="' + className + '">' + m + '</span>'; });
+        @:        });
+        @:        return txt;
+        @:    }
+        @:
+        @:    var previewEl = document.getElementById('previewText');
+        @:    if (previewEl && previewText) {
+        @:        var txt = esc(previewText);
+        @:        txt = highlightText(txt, skillList, 'hl-skill');
+        @:        if (emailVal) txt = txt.replace(new RegExp(emailVal.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&'), 'g'), '<span class="hl-email">' + emailVal + '</span>');
+        @:        if (phoneVal) txt = txt.replace(new RegExp(phoneVal.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&'), 'g'), '<span class="hl-phone">' + phoneVal + '</span>');
+        @:        previewEl.innerHTML = txt;
+        @:    }
+    }
+
+    function resetForm() {
+        window.location.
+        href = '/Resume';
+    }
+</script>
+</body>
+</html>
