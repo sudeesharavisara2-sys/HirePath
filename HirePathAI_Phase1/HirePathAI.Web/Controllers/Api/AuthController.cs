@@ -1,4 +1,6 @@
-﻿using HirePathAI.Application.DTOs.Auth;
+﻿using System.Security.Claims;
+using Asp.Versioning;
+using HirePathAI.Application.DTOs.Auth;
 using HirePathAI.Application.Interfaces;
 using HirePathAI.Domain.Constants;
 using HirePathAI.Infrastructure.Identity;
@@ -9,17 +11,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace HirePathAI.Web.Controllers.Api;
 
 [ApiController]
-[Route("api/auth")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/auth")]
+[Produces("application/json")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<ApplicationUser>
-        _userManager;
-
-    private readonly SignInManager<ApplicationUser>
-        _signInManager;
-
-    private readonly IJwtTokenService
-        _jwtTokenService;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IJwtTokenService _jwtTokenService;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
@@ -31,10 +30,20 @@ public class AuthController : ControllerBase
         _jwtTokenService = jwtTokenService;
     }
 
+    // POST: /api/v1/auth/register
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponse>>
-        Register(RegisterRequest request)
+    [ProducesResponseType(
+        typeof(AuthResponse),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status409Conflict)]
+    [ProducesResponseType(
+        StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<AuthResponse>> Register(
+        [FromBody] RegisterRequest request)
     {
         if (!ModelState.IsValid)
         {
@@ -53,7 +62,7 @@ public class AuthController : ControllerBase
             return Conflict(new
             {
                 message =
-                    "An account already exists with this email."
+                    "An account already exists with this email address."
             });
         }
 
@@ -62,7 +71,9 @@ public class AuthController : ControllerBase
             FullName = request.FullName.Trim(),
             UserName = normalizedEmail,
             Email = normalizedEmail,
-            IsActive = true
+            EmailConfirmed = true,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
 
         var createResult =
@@ -75,11 +86,15 @@ public class AuthController : ControllerBase
             return BadRequest(new
             {
                 message = "Registration failed.",
-                errors = createResult.Errors.Select(
-                    error => error.Description)
+
+                errors = createResult.Errors
+                    .Select(error =>
+                        error.Description)
+                    .ToArray()
             });
         }
 
+        // Public registration always receives Candidate role.
         var roleResult =
             await _userManager.AddToRoleAsync(
                 user,
@@ -87,6 +102,7 @@ public class AuthController : ControllerBase
 
         if (!roleResult.Succeeded)
         {
+            // Remove the user when role assignment fails.
             await _userManager.DeleteAsync(user);
 
             return StatusCode(
@@ -94,9 +110,12 @@ public class AuthController : ControllerBase
                 new
                 {
                     message =
-                        "The candidate role could not be assigned.",
-                    errors = roleResult.Errors.Select(
-                        error => error.Description)
+                        "The Candidate role could not be assigned.",
+
+                    errors = roleResult.Errors
+                        .Select(error =>
+                            error.Description)
+                        .ToArray()
                 });
         }
 
@@ -111,7 +130,7 @@ public class AuthController : ControllerBase
                 roles,
                 out var expiresAt);
 
-        return Ok(new AuthResponse
+        var response = new AuthResponse
         {
             UserId = user.Id,
             FullName = user.FullName,
@@ -119,13 +138,23 @@ public class AuthController : ControllerBase
             Token = token,
             ExpiresAt = expiresAt,
             Roles = roles.ToArray()
-        });
+        };
+
+        return Ok(response);
     }
 
+    // POST: /api/v1/auth/login
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>>
-        Login(LoginRequest request)
+    [ProducesResponseType(
+        typeof(AuthResponse),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthResponse>> Login(
+        [FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid)
         {
@@ -143,24 +172,31 @@ public class AuthController : ControllerBase
         {
             return Unauthorized(new
             {
-                message =
-                    "Invalid email or password."
+                message = "Invalid email or password."
             });
         }
 
         var passwordResult =
-            await _signInManager
-                .CheckPasswordSignInAsync(
-                    user,
-                    request.Password,
-                    lockoutOnFailure: true);
+            await _signInManager.CheckPasswordSignInAsync(
+                user,
+                request.Password,
+                lockoutOnFailure: true);
 
         if (passwordResult.IsLockedOut)
         {
             return Unauthorized(new
             {
                 message =
-                    "The account is temporarily locked."
+                    "Your account is temporarily locked. Please try again later."
+            });
+        }
+
+        if (passwordResult.IsNotAllowed)
+        {
+            return Unauthorized(new
+            {
+                message =
+                    "This account is not allowed to sign in."
             });
         }
 
@@ -168,8 +204,7 @@ public class AuthController : ControllerBase
         {
             return Unauthorized(new
             {
-                message =
-                    "Invalid email or password."
+                message = "Invalid email or password."
             });
         }
 
@@ -184,7 +219,7 @@ public class AuthController : ControllerBase
                 roles,
                 out var expiresAt);
 
-        return Ok(new AuthResponse
+        var response = new AuthResponse
         {
             UserId = user.Id,
             FullName = user.FullName,
@@ -192,30 +227,43 @@ public class AuthController : ControllerBase
             Token = token,
             ExpiresAt = expiresAt,
             Roles = roles.ToArray()
-        });
+        };
+
+        return Ok(response);
     }
 
+    // GET: /api/v1/auth/me
     [Authorize]
     [HttpGet("me")]
+    [ProducesResponseType(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
     {
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        var fullName =
+            User.FindFirstValue(
+                ClaimTypes.Name);
+
+        var email =
+            User.FindFirstValue(
+                ClaimTypes.Email);
+
+        var roles =
+            User.FindAll(ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                .ToArray();
+
         return Ok(new
         {
-            userId = User.FindFirst(
-                System.Security.Claims
-                    .ClaimTypes.NameIdentifier)?.Value,
-
-            fullName = User.Identity?.Name,
-
-            email = User.FindFirst(
-                System.Security.Claims
-                    .ClaimTypes.Email)?.Value,
-
-            roles = User.FindAll(
-                    System.Security.Claims
-                        .ClaimTypes.Role)
-                .Select(claim => claim.Value)
-                .ToArray()
+            userId,
+            fullName,
+            email,
+            roles
         });
     }
 }
