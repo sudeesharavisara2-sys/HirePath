@@ -158,7 +158,7 @@ public class ApplicationDbContext
     }
 
     private static void ConfigureResumeAnalysis(
-        ModelBuilder modelBuilder)
+     ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ResumeAnalysis>(entity =>
         {
@@ -166,39 +166,77 @@ public class ApplicationDbContext
 
             entity.HasKey(analysis => analysis.Id);
 
-            entity.Property(analysis => analysis.CandidateName)
+            entity.Property(analysis =>
+                    analysis.CandidateName)
                 .HasMaxLength(150)
                 .IsRequired();
 
-            entity.Property(analysis => analysis.CandidateEmail)
+            entity.Property(analysis =>
+                    analysis.CandidateEmail)
                 .HasMaxLength(256);
 
-            entity.Property(analysis => analysis.CandidatePhone)
+            entity.Property(analysis =>
+                    analysis.CandidatePhone)
                 .HasMaxLength(30);
 
-            entity.Property(analysis => analysis.ResumeFileName)
+            entity.Property(analysis =>
+                    analysis.ResumeFileName)
                 .HasMaxLength(500)
                 .IsRequired();
 
-            entity.Property(analysis => analysis.ResumeFilePath)
+            entity.Property(analysis =>
+                    analysis.ResumeFilePath)
                 .HasMaxLength(1000);
 
-            entity.Property(analysis => analysis.ExtractedSkills)
-                .HasMaxLength(3000);
+            entity.Property(analysis =>
+                    analysis.ExtractedSkills)
+                .HasColumnType("nvarchar(max)");
 
-            entity.Property(analysis => analysis.Education)
-                .HasMaxLength(2000);
+            entity.Property(analysis =>
+                    analysis.MatchedSkills)
+                .HasColumnType("nvarchar(max)");
 
-            entity.Property(analysis => analysis.Certifications)
-                .HasMaxLength(2000);
+            entity.Property(analysis =>
+                    analysis.MissingSkills)
+                .HasColumnType("nvarchar(max)");
 
-            entity.Property(analysis => analysis.Recommendation)
+            entity.Property(analysis =>
+                    analysis.Education)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(analysis =>
+                    analysis.Experience)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(analysis =>
+                    analysis.Certifications)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(analysis =>
+                    analysis.Recommendation)
                 .HasMaxLength(500);
 
-            entity.HasOne(analysis => analysis.Job)
-                .WithMany(job => job.ResumeAnalyses)
-                .HasForeignKey(analysis => analysis.JobId)
+            entity.Property(analysis =>
+                    analysis.Summary)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(analysis =>
+                    analysis.ProcessedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(analysis =>
+                    analysis.Job)
+                .WithMany(job =>
+                    job.ResumeAnalyses)
+                .HasForeignKey(analysis =>
+                    analysis.JobId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(analysis =>
+                analysis.JobId);
+
+            entity.HasIndex(analysis =>
+                analysis.ProcessedAt);
         });
     }
 }
